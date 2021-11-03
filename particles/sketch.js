@@ -1,5 +1,7 @@
 const canvasSketch = require("canvas-sketch");
 const random = require("canvas-sketch-util/random");
+const Vector = require("../utils/Vector");
+const Color = require("../utils/Color");
 
 const settings = {
   dimensions: [window.innerWidth, window.innerHeight],
@@ -9,23 +11,18 @@ const settings = {
 const normalize = (min, max, curr) => (curr - min) / (max - min);
 
 const sketch = ({ context, width, height }) => {
-  class Vector {
-    constructor(x, y) {
-      this.x = x;
-      this.y = y;
-    }
-  }
-
   class Agent {
     constructor(
       x = undefined,
       y = undefined,
-      radius = 7,
-      vel = new Vector(random.range(-2, 2), random.range(-2, 2))
+      radius = 2,
+      vel = new Vector(random.range(-2, 2), random.range(-2, 2)),
+      color = "white"
     ) {
       this.pos = new Vector(x, y);
       this.radius = radius;
       this.vel = vel;
+      this.color = color;
     }
 
     update() {
@@ -50,12 +47,12 @@ const sketch = ({ context, width, height }) => {
 
     draw() {
       context.save();
-      context.fillStyle = "black";
+      context.fillStyle = `rgb(${this.color.r},${this.color.g},${this.color.b})`;
       context.lineWidth = 2;
       context.translate(this.pos.x, this.pos.y);
       context.beginPath();
       context.arc(0, 0, this.radius, 0, Math.PI * 2);
-      context.stroke();
+      context.fill();
       context.restore();
 
       this.update();
@@ -73,7 +70,7 @@ const sketch = ({ context, width, height }) => {
 
   let mouseIn = false;
 
-  const mouse = new Agent(0, 0, height * 0.2, new Vector(0, 0));
+  const mouse = new Agent(0, 0, height * 0.15, new Vector(0, 0));
 
   canvas.addEventListener("mouseenter", ({ clientX, clientY }) => {
     mouseIn = true;
@@ -92,6 +89,7 @@ const sketch = ({ context, width, height }) => {
     }, 50);
 
     mouseIn = true;
+    // normalize to match canvas coordinates
     const currX = normalize(canvasRect.left, canvasRect.right, clientX) * width;
     const currY =
       normalize(canvasRect.top, canvasRect.bottom, clientY) * height;
@@ -105,14 +103,46 @@ const sketch = ({ context, width, height }) => {
     mouseIn = false;
   });
 
-  const numParticles = 100;
+  const numParticles = 350;
 
-  const particles = new Array(numParticles)
-    .fill({})
-    .map((o) => new Agent(random.range(0, width), random.range(0, height)));
+  let color1 = new Color(255, 0, 0);
+  let color2 = new Color(0, 0, 255);
+
+  const particles = new Array(numParticles).fill({}).map((o) => {
+    const x = random.range(0, width);
+    const y = random.range(0, height);
+
+    const normalizedPos = normalize(0, width, x);
+
+    return new Agent(
+      x,
+      y,
+      5,
+      new Vector(random.range(-2, 2), random.range(-2, 2)),
+      // invert particle color based on position on background gradient
+      new Color(color1.r * (1 - normalizedPos), 0, color2.b * normalizedPos)
+    );
+  });
+
+  let timer = 0;
 
   return ({ context, width, height }) => {
-    context.fillStyle = "white";
+    timer++;
+
+    // cool colour changes using sine 
+    color1.r = 255 - Math.cos(timer / 60) * 255;
+    color1.g = Math.cos(timer / 80) * 255;
+    color1.b = Math.cos(timer / 70) * 255;
+
+    color2.r = Math.cos(timer / 100) * 255;
+    color2.g = Math.cos(timer / 90) * 255;
+    color2.b = 255 - Math.cos(timer / 90) * 255;
+
+    // Create gradient
+    let grd = context.createLinearGradient(0, height / 2, width, height / 2);
+    grd.addColorStop(0, `rgb(${color1.r},${color1.g},${color1.b})`);
+    grd.addColorStop(1, `rgb(${color2.r},${color2.g},${color2.b})`);
+    context.fillStyle = grd;
     context.fillRect(0, 0, width, height);
 
     // collision handling with mouse
@@ -134,6 +164,7 @@ const sketch = ({ context, width, height }) => {
           const overlapX = overlap * Math.cos(angle);
           const overlapY = overlap * Math.sin(angle);
 
+          // collision handling
           particle.pos.x =
             particle.pos.x - mouse.pos.x > 0
               ? particle.pos.x + overlapX
@@ -145,6 +176,10 @@ const sketch = ({ context, width, height }) => {
               : particle.pos.y - overlapY;
         }
       }
+      // invert color based on background gradient
+      const normalizedPosition = normalize(0, width, particle.pos.x);
+      particle.color.r = 255 - (color1.r - color2.r) * (1 - normalizedPosition);
+      particle.color.b = 255 - (color1.r - color2.r) * normalizedPosition;
     });
 
     for (let i = 0; i < particles.length; i++)
@@ -152,16 +187,25 @@ const sketch = ({ context, width, height }) => {
         const particle = particles[i];
         const other = particles[j];
         const distance = particle.getDistanceSquared(other);
-        const maxDistance = 20000;
+        const maxDistance = 20000; // arbitraty value 
 
         // draw line between particles
         if (distance < maxDistance) {
-          context.fillStyle = "black";
-          context.lineWidth = 2 * (1 - normalize(0, maxDistance, distance));
+          const normalizedDistance = normalize(0, maxDistance, distance);
+          const colorRangeR = particle.color.r - other.color.r;
+          const colorRangeB = particle.color.b - other.color.b;
+          context.save();
+
+          // normalize line color based on both particle colors
+          context.strokeStyle = `rgb(${
+            normalizedDistance * colorRangeR + particle.color.r
+          },0,${normalizedDistance * colorRangeB - particle.color.b})`;
+          context.lineWidth = 1 * (1 - normalizedDistance);
           context.beginPath();
           context.moveTo(particle.pos.x, particle.pos.y);
           context.lineTo(other.pos.x, other.pos.y);
           context.stroke();
+          context.restore();
         }
       }
 
