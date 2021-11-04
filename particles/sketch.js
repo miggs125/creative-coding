@@ -2,6 +2,8 @@ const canvasSketch = require("canvas-sketch");
 const random = require("canvas-sketch-util/random");
 const Vector = require("../utils/Vector");
 const Color = require("../utils/Color");
+const Agent = require("../utils/Agent");
+const { getDistanceSquared, getDistance } = require("../utils/general");
 
 const settings = {
   dimensions: [window.innerWidth, window.innerHeight],
@@ -11,7 +13,7 @@ const settings = {
 const normalize = (min, max, curr) => (curr - min) / (max - min);
 
 const sketch = ({ context, width, height }) => {
-  class Agent {
+  class Particle extends Agent {
     constructor(
       x = undefined,
       y = undefined,
@@ -19,10 +21,7 @@ const sketch = ({ context, width, height }) => {
       vel = new Vector(random.range(-2, 2), random.range(-2, 2)),
       color = "white"
     ) {
-      this.pos = new Vector(x, y);
-      this.radius = radius;
-      this.vel = vel;
-      this.color = color;
+      super(x, y, radius, vel, color);
     }
 
     update() {
@@ -57,12 +56,6 @@ const sketch = ({ context, width, height }) => {
 
       this.update();
     }
-
-    getDistanceSquared(other) {
-      const dx = other.pos.x - this.pos.x;
-      const dy = other.pos.y - this.pos.y;
-      return dx * dx + dy * dy;
-    }
   }
 
   const canvas = document.getElementsByTagName("canvas")[0];
@@ -70,7 +63,7 @@ const sketch = ({ context, width, height }) => {
 
   let mouseIn = false;
 
-  const mouse = new Agent(0, 0, height * 0.15, new Vector(0, 0));
+  const mouse = new Particle(0, 0, height * 0.15, new Vector(0, 0));
 
   canvas.addEventListener("mouseenter", ({ clientX, clientY }) => {
     mouseIn = true;
@@ -114,7 +107,7 @@ const sketch = ({ context, width, height }) => {
 
     const normalizedPos = normalize(0, width, x);
 
-    return new Agent(
+    return new Particle(
       x,
       y,
       5,
@@ -129,7 +122,7 @@ const sketch = ({ context, width, height }) => {
   return ({ context, width, height }) => {
     timer++;
 
-    // cool colour changes using cosine 
+    // cool colour changes using cosine
     color1.r = 255 - Math.cos(timer / 120) * 255;
     color1.g = Math.cos(timer / 160) * 255;
     color1.b = Math.cos(timer / 140) * 255;
@@ -151,7 +144,7 @@ const sketch = ({ context, width, height }) => {
         const minDist = Math.sqrt(
           particle.radius * particle.radius + mouse.radius * mouse.radius
         );
-        const currDist = Math.sqrt(particle.getDistanceSquared(mouse));
+        const currDist = getDistance(particle, mouse);
 
         // particles have collided with mouse
         if (currDist <= minDist) {
@@ -186,8 +179,8 @@ const sketch = ({ context, width, height }) => {
       for (let j = i + 1; j < particles.length; j++) {
         const particle = particles[i];
         const other = particles[j];
-        const distance = particle.getDistanceSquared(other);
-        const maxDistance = 20000; // arbitraty value 
+        const distance =  getDistanceSquared(particle, other);
+        const maxDistance = 20000; // arbitraty value
 
         // draw line between particles
         if (distance < maxDistance) {
