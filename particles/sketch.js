@@ -129,14 +129,14 @@ const sketch = ({ context, width, height }) => {
   return ({ context, width, height }) => {
     timer++;
 
-    // cool colour changes using sine 
-    color1.r = 255 - Math.cos(timer / 60) * 255;
-    color1.g = Math.cos(timer / 80) * 255;
-    color1.b = Math.cos(timer / 70) * 255;
+    // cool colour changes using cosine 
+    color1.r = 255 - Math.cos(timer / 120) * 255;
+    color1.g = Math.cos(timer / 160) * 255;
+    color1.b = Math.cos(timer / 140) * 255;
 
-    color2.r = Math.cos(timer / 100) * 255;
-    color2.g = Math.cos(timer / 90) * 255;
-    color2.b = 255 - Math.cos(timer / 90) * 255;
+    color2.r = Math.cos(timer / 200) * 255;
+    color2.g = Math.cos(timer / 180) * 255;
+    color2.b = 255 - Math.cos(timer / 180) * 255;
 
     // Create gradient
     let grd = context.createLinearGradient(0, height / 2, width, height / 2);
